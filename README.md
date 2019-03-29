@@ -1,1 +1,1 @@
-# okta-jwt-verifier
+# okta-oauth-sdk
