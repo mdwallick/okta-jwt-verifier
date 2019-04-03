@@ -1,28 +1,19 @@
 import json
 import logging
+import sys
 
-from okta.util.exceptions import (
-    DecodeError, ExpiredTokenError, ImmatureSignatureError,
-    InvalidAudienceError, InvalidIssuedAtError,
-    InvalidIssuerError, InvalidSignatureError, MissingRequiredClaimError
-)
-from okta.util.jwt  import JwtVerifier
-from okta.util.http import Http
+from okta.util.exceptions import *
+from okta.util.jwt import JwtVerifier
 
-# this is a valid, signed JWT
-jwt = "eyJraWQiOiJFQ3JNSEptd1I4SXZFVTY5RTNtNmF0OTAyQzZzR0FGeFUzSGJ5MzRKUl9jIiwiYWxnIjoiUlMyNTYifQ.eyJ2ZXIiOjEsImp0aSI6IkFULnBXYmwzdHdJT2dsQmc2UTZ6S1NCTTlpN1I3RUdwdkFLTlEyY01qalZWa3MiLCJpc3MiOiJodHRwczovL3dhbGxpY2sub2t0YXByZXZpZXcuY29tL29hdXRoMi9hdXNqdGI2OXJ6a3N3VlBDUTBoNyIsImF1ZCI6ImFwaTovL2RlZmF1bHQiLCJpYXQiOjE1NTQxMzQ5MjAsImV4cCI6MTU1NDEzODUyMCwiY2lkIjoiMG9hanRhZTI1MkpndVZnWG4waDciLCJ1aWQiOiIwMHVlaHhqYmoxQXI5Qnp4bjBoNyIsInNjcCI6WyJvcGVuaWQiLCJlbWFpbCIsInByb2ZpbGUiXSwic3ViIjoibGVzLmNsYXlwb29sQG1haWxpbmF0b3IuY29tIn0.INdCaQFOFOv378M28ny_3OnJ5OxN3vVuOABZlBblWc9_I-5onxq_UV5XS66zJ9BbstY26XE2PIK8dLqTfi0o4jxRjUoquqkjclLgmBG9lRLlRCBlo1b5xKeoT98DTZNTgu3Gf75wiYOdmGGUr9k2qlGzykZiOUB9hs2O2eCLqJZzJZRhxTJ_DKZC-_ZnRNGEh1-MfGPs-av47muE4uq6l0eAUIKY7x85VmQ2ZcnlYR7P1ncHIIDmRhycGOazkk5rqgp_ScM5UzCwqziX773FpvfiwnfrNm6cca5cEJ1CBxBaLOnTK3xftLsrhY76gU2UUfA0gCp6F4u0AyH6RtJEdw"
-
-# this JWT has been tampered with to extend the exp time
-# it fails signature validation
-#jwt = "eyJraWQiOiJFQ3JNSEptd1I4SXZFVTY5RTNtNmF0OTAyQzZzR0FGeFUzSGJ5MzRKUl9jIiwiYWxnIjoiUlMyNTYifQ.ewogICAgImF1ZCI6ICJhcGk6Ly9kZWZhdWx0IiwKICAgICJjaWQiOiAiMG9hanRhZTI1MkpndVZnWG4waDciLAogICAgImV4cCI6IDE1NTM4OTEzNjMsCiAgICAiaWF0IjogMTU1Mzc4Nzc2MywKICAgICJpc3MiOiAiaHR0cHM6Ly93YWxsaWNrLm9rdGFwcmV2aWV3LmNvbS9vYXV0aDIvYXVzanRiNjlyemtzd1ZQQ1EwaDciLAogICAgImp0aSI6ICJBVC5BUTkwZzBpRkRLaWRDNVRVSUxSYmtjc21RcHhOSjd0TXRNMGJtWXNudVFFIiwKICAgICJzY3AiOiBbCiAgICAgICAgInByb2ZpbGUiLAogICAgICAgICJlbWFpbCIsCiAgICAgICAgIm9wZW5pZCIKICAgIF0sCiAgICAic3ViIjogImxlcy5jbGF5cG9vbEBtYWlsaW5hdG9yLmNvbSIsCiAgICAidWlkIjogIjAwdWVoeGpiajFBcjlCenhuMGg3IiwKICAgICJ2ZXIiOiAxCn0=.Z_Bqr9SAamny8Ky-Qh2dovUz-5udzRyh0FzDi2crGewFdo94oxmigqD5YnbKlxZKtBdJxL2RYaAoPcIbCaeX4JEPg8Mv2EogUQ-L_04WvVCyaNBYhvJm6oMOnf4yKniDNZN-0bRAFJ4Cl5jQFvQ9iTvhBZKyEt9hJD_N_h7kw2AH1TwwMkd6VIsLPTH99qEPhJBalahfDlsFfcpsldOjUyS0sIw_8e5NqE5C3OJ5v6QBqeHshda1oTzqISUtIHEtx3Fdh0G8KDmnSr8dW75WjRrtVgsty6BuCZzhjROfsIluvbC7agNsZ7tXcKg5fupeYQDnqJtXkImA6UsZed0Rnw"
+jwt = sys.argv[1]
 
 try:
-    okta = JwtVerifier(logging.INFO)
+    oktaJwt = JwtVerifier(logging.INFO)
     #okta = JwtVerifier()
-    decoded_jwt = okta.decode(jwt)
+    decoded_jwt = oktaJwt.decode(jwt)
     print("decoded_jwt: {0}".format(json.dumps(decoded_jwt, indent=4, sort_keys=True)))
 
-    if okta.introspect(jwt):
+    if oktaJwt.introspect(jwt):
         print("Issuer reports the token is still valid.")
     else:
         print("Issuer reports the token is no longer valid.")

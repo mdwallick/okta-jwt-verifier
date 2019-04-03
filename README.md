@@ -44,7 +44,7 @@ import json
 import logging
 
 from okta.util.exceptions import *
-from okta.jwt import JwtVerifier
+from okta.util.jwt import JwtVerifier
 
 jwt = "base64 encoded access token"
 try:
