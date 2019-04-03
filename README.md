@@ -5,7 +5,6 @@ This is a simple JWT package built to work specifically with Okta's API Access M
 ## Requirements
 * Python >= 3.7
 * cryptography >= 2.6
-* joblib >= 0.13.2
 * python-dotenv >= 0.10.1
 * requests >= 2.21
 
