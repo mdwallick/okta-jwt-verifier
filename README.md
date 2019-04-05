@@ -34,6 +34,6 @@ CLIENT_SECRET=<OIDC client secret>
 ```
 
 ## Usage
-See [main.py](https://github.com/mdwallick/okta-jwt/blob/master/main.py) for a basic usage example.
+See [__main__.py](https://github.com/mdwallick/okta-jwt/blob/master/okta-jwt/__main__.py) for a basic usage example.
 
 You may also pass a log level into `JwtVerifier()` to get additional information printed to the console. The default log level is `logging.WARNING`.
