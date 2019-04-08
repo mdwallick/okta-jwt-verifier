@@ -15,7 +15,7 @@ def main():
         # You can pass in any log level to get more/less information
         # printed to the console. If a log level is not specified,
         # the default log level is logging.WARNING.
-        oktaJwt = JwtVerifier(logging.INFO)
+        oktaJwt = JwtVerifier(logging.DEBUG)
         decoded_jwt = oktaJwt.decode(jwt)
         print("decoded_jwt: {0}".format(json.dumps(decoded_jwt, indent=4, sort_keys=True)))
 

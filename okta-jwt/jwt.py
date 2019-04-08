@@ -7,7 +7,6 @@ import time
 
 from calendar import timegm
 from datetime import datetime
-from pathlib  import Path
 
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from cryptography.hazmat.primitives import hashes
@@ -24,7 +23,7 @@ class JwtVerifier(object):
 
     PADDING = padding.PKCS1v15()
     HASH_ALGORITHM = hashes.SHA256()
-    ONE_DAY = 120
+    ONE_DAY = 86400
     CACHE_DIR = "cache"
 
     def __init__(self, loglevel=logging.WARNING):
@@ -54,8 +53,7 @@ class JwtVerifier(object):
         if "CLIENT_SECRET" in os.environ:
             self.client_secret = os.getenv("CLIENT_SECRET")
         else:
-            #raise OktaError("Client Secret not specified. Did you check your .env file?")
-            self.client_secret = None
+            raise OktaError("Client Secret not specified. Did you check your .env file?")
 
         self.issuer = "{0}/oauth2/{1}".format(self.okta_org, self.auth_server_id)
         logging.debug("Issuer:        {0}".format(self.issuer))
@@ -76,14 +74,9 @@ class JwtVerifier(object):
         #    and signed message (header + payload)
         header, payload, signature, signed_message = self.__get_jwt_parts(jwt)
 
-        # 2. get the kid from the jwt header, get the jwk from the issuer
-        #  and compute the public key
-        kid = header["kid"]
-        public_key = self.__get_public_key(kid)
-
-        # 3. verify the signature on the JWT
-        if self.__verify_signature(signature, signed_message, public_key):
-            # 4. if the signature is valid, try to parse the payload into JSON
+        # 2. verify the signature on the JWT
+        if self.__verify_signature(signature, signed_message, header["kid"]):
+            # 3. if the signature is valid, try to parse the payload into JSON
             logging.debug("Trying to parse the payload into JSON")
             try:
                 payload = json.loads(payload.decode("utf-8"))
@@ -92,10 +85,10 @@ class JwtVerifier(object):
             except ValueError as e:
                 raise DecodeError("Invalid payload JSON: %s" % e)
 
-            # 5. verify the required claims
+            # 4. verify the required claims
             self.__verify_claims(payload)
 
-            # 6. return the JSON representation of the payload
+            # 5. return the JSON representation of the payload
             return payload
         else:
             raise InvalidSignatureError("Signature is not valid")
@@ -103,19 +96,18 @@ class JwtVerifier(object):
 
     def introspect(self, jwt):
         logging.debug("starting introspect()")
-        if self.client_secret != None:
-            secret = "&client_secret={0}".format(self.client_secret)
-
+        introspection_uri = self.__get_introspection_endpoint()
         uri = (
-            "{0}/v1/introspect?token={1}&"
-            "client_id={2}{3}"
-        ).format(
-            self.issuer, jwt, self.client_id, secret
-        )
+            "{0}?token={1}&"
+            "client_id={2}&"
+            "client_secret={3}"
+        ).format(introspection_uri, jwt, self.client_id, self.client_secret)
+
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/x-www-form-urlencoded"
         }
+
         logging.debug("Calling introspection endpoint")
         response = Http.execute_post(uri, headers=headers)
         logging.debug("Introspection: {0}".format(self.__dump_json(response)))
@@ -176,19 +168,20 @@ class JwtVerifier(object):
             raise DecodeError("Issued At Time claim (iat) must be an integer.")
 
         if iat > now:
-            raise ImmatureSignatureError("This token is not yet valid (iat).")
+            raise InvalidIssuedAtError("This token is not yet valid (iat).")
 
-    def __verify_signature(self, signature, message, key):
+    def __verify_signature(self, signature, message, kid):
         logging.debug("starting __verify_signature()")
+        public_key = self.__get_public_key(kid)
         try:
-            key.verify(signature, message, self.PADDING, self.HASH_ALGORITHM)
+            public_key.verify(signature, message, self.PADDING, self.HASH_ALGORITHM)
             logging.info("JWT signature is valid")
             return True
         except InvalidSignature:
             return False
 
     def __get_public_key(self, kid):
-        logging.debug("starting __get_jwk()")
+        logging.debug("starting __get_public_key()")
         # get the exponent and modulus from the jwk so we can get the public key
         e, n = self.__get_jwk(kid)
         numbers = RSAPublicNumbers(e, n)
@@ -205,7 +198,6 @@ class JwtVerifier(object):
         n = self.__base64_to_int(jwk["n"].encode("utf-8"))
         return (e, n)
 
-    # TODO - see if there's a better way to cache this than using joblib
     def __get_jwk_by_id(self, kid):
         logging.debug("starting __get_jwk_by_id()")
         metadata = self.__get_oauth_metadata()
@@ -242,13 +234,18 @@ class JwtVerifier(object):
         logging.error("No jwk found for key ID: {0}".format(kid))
         return {}
 
-    # TODO - see if there's a better way to cache this than using joblib
+    def __get_introspection_endpoint(self):
+        metadata = self.__get_oauth_metadata()
+        if "introspection_endpoint" not in metadata:
+            raise OktaError("Introspection endpoint not found in auth server metadata!")
+
+        return metadata["introspection_endpoint"]
+
     def __get_oauth_metadata(self):
         logging.debug("Getting OAuth metadata from issuer")
         metadata_uri = "{0}/.well-known/oauth-authorization-server".format(self.issuer)
 
         # is there a cache file present?
-        #metadata_cache = Path(self.CACHE_DIR + '/oauth-metadata.json')
         metadata_cache = self.CACHE_DIR + '/issuer.json'
         if os.path.isfile(metadata_cache):
             # we have a cache file, how old is it?
@@ -256,7 +253,7 @@ class JwtVerifier(object):
             if file_age > self.ONE_DAY:
                 # it's a day old, go get a new copy and cache it
                 metadata = Http.execute_get(metadata_uri)
-                logging.debug("Writing cache file {0}".format(metadata_cache))
+                #logging.debug("Writing cache file {0}".format(metadata_cache))
                 self.__write_json_file(metadata_cache, metadata)
             else:
                 # just read in the metadata from the cached file
@@ -265,10 +262,10 @@ class JwtVerifier(object):
         else:
             # no cache file exists, go get the metadata and cache it
             metadata = Http.execute_get(metadata_uri)
-            logging.debug("Writing cache file {0}".format(metadata_cache))
+            #logging.debug("Writing cache file {0}".format(metadata_cache))
             self.__write_json_file(metadata_cache, metadata)
 
-        logging.debug("OAuth metadata: {0}".format(self.__dump_json(metadata)))
+        #logging.debug("OAuth metadata: {0}".format(self.__dump_json(metadata)))
         return metadata
 
     def __get_jwt_parts(self, jwt):
@@ -317,7 +314,7 @@ class JwtVerifier(object):
         with open(filename, "r") as json_file:
             data = json.load(json_file)
             logging.debug("loaded JSON from file {0}".format(filename))
-            logging.debug("JSON: {0}".format(self.__dump_json(data)))
+            #logging.debug("JSON: {0}".format(self.__dump_json(data)))
 
         return data
 
