@@ -26,8 +26,13 @@ class JwtVerifier(object):
     ONE_DAY = 86400
     CACHE_DIR = "cache"
 
-    def __init__(self, loglevel=logging.WARNING):
+    def __init__(self):
         # constructor
+        loglevel = logging.WARNING
+
+        if "LOG_LEVEL" in os.environ:
+            loglevel = os.getenv("LOG_LEVEL")
+
         logging.basicConfig(level=loglevel)
 
         if "OKTA_ORG" in os.environ:
@@ -116,18 +121,6 @@ class JwtVerifier(object):
 
     def __verify_claims(self, payload):
         logging.debug("starting __verify_claims()")
-        if payload.get("exp") is None:
-            raise MissingRequiredClaimError("exp")
-
-        if payload.get("iat") is None:
-            raise MissingRequiredClaimError("iat")
-
-        if payload.get("iss") is None:
-            raise MissingRequiredClaimError("iss")
-
-        if payload.get("aud") is None:
-            raise MissingRequiredClaimError("aud")
-
         now = timegm(datetime.utcnow().utctimetuple())
         self.__verify_iss(payload)
         self.__verify_aud(payload)
@@ -183,8 +176,8 @@ class JwtVerifier(object):
     def __get_public_key(self, kid):
         logging.debug("starting __get_public_key()")
         # get the exponent and modulus from the jwk so we can get the public key
-        e, n = self.__get_jwk(kid)
-        numbers = RSAPublicNumbers(e, n)
+        exponent, modulus = self.__get_jwk(kid)
+        numbers = RSAPublicNumbers(exponent, modulus)
         public_key = numbers.public_key(default_backend())
         public_key_serialized = public_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
         logging.debug("public key: {0}".format(public_key_serialized))
@@ -194,9 +187,11 @@ class JwtVerifier(object):
         logging.debug("starting __get_jwk()")
         jwk = self.__get_jwk_by_id(kid)
         # return the exponent and modulus of the public key
-        e = self.__base64_to_int(jwk["e"].encode("utf-8"))
-        n = self.__base64_to_int(jwk["n"].encode("utf-8"))
-        return (e, n)
+        exponent = self.__base64_to_int(jwk["e"].encode("utf-8"))
+        modulus = self.__base64_to_int(jwk["n"].encode("utf-8"))
+        logging.debug("exponent: {0}".format(exponent))
+        logging.debug("modulus:  {0}".format(modulus))
+        return (exponent, modulus)
 
     def __get_jwk_by_id(self, kid):
         logging.debug("starting __get_jwk_by_id()")

@@ -23,7 +23,7 @@ Create a new OIDC web app in Okta. This is the client that you will create acces
 **3) Create an Authorization Server**
 
 ## Environment variables
-This package uses dotenv, so create a `.env` file with these values:
+Create a `.env` file with these values (or just create environment variables directly).
 
 ```
 OKTA_ORG=https://<yoursubdomain>.okta.com
@@ -31,9 +31,8 @@ AUTH_SERVER_ID=<Okta auth server ID>
 AUDIENCE=<OIDC audience from your app>
 CLIENT_ID=<OIDC client ID>
 CLIENT_SECRET=<OIDC client secret>
+LOG_LEVEL=DEBUG|INFO|WARNING|ERROR
 ```
 
 ## Usage
 See [__main__.py](https://github.com/mdwallick/okta-jwt/blob/master/okta-jwt/__main__.py) for a basic usage example.
-
-You may also pass a log level into `JwtVerifier()` to get additional information printed to the console. The default log level is `logging.WARNING`.
