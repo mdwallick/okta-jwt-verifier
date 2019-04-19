@@ -8,12 +8,12 @@ import time
 from calendar import timegm
 from datetime import datetime
 
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey, RSAPublicNumbers
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.backends import default_backend
 from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey, RSAPublicNumbers
+from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from .util.exceptions import *
 from .util.http import Http
@@ -25,6 +25,8 @@ class JwtVerifier(object):
     HASH_ALGORITHM = hashes.SHA256()
     ONE_DAY = 86400
     CACHE_DIR = "cache"
+    PEM_ENCODING = Encoding.PEM
+    PUBLIC_KEY_FORMAT = PublicFormat.SubjectPublicKeyInfo
 
     def __init__(self):
         # constructor
@@ -35,15 +37,10 @@ class JwtVerifier(object):
 
         logging.basicConfig(level=loglevel)
 
-        if "OKTA_ORG" in os.environ:
-            self.okta_org = os.getenv("OKTA_ORG")
+        if "ISSUER" in os.environ:
+            self.issuer = os.getenv("ISSUER")
         else:
-            raise OktaError("Okta org not specified. Did you check your .env file?")
-
-        if "AUTH_SERVER_ID" in os.environ:
-            self.auth_server_id = os.getenv("AUTH_SERVER_ID")
-        else:
-            self.auth_server_id = "default"
+            raise OktaError("Issuer not specified. Did you check your .env file?")
 
         if "AUDIENCE" in os.environ:
             self.audience = os.getenv("AUDIENCE")
@@ -60,7 +57,6 @@ class JwtVerifier(object):
         else:
             raise OktaError("Client Secret not specified. Did you check your .env file?")
 
-        self.issuer = "{0}/oauth2/{1}".format(self.okta_org, self.auth_server_id)
         logging.debug("Issuer:        {0}".format(self.issuer))
         logging.debug("Audience:      {0}".format(self.audience))
         logging.debug("Client ID:     {0}".format(self.client_id))
@@ -122,10 +118,10 @@ class JwtVerifier(object):
     def __verify_claims(self, payload):
         logging.debug("starting __verify_claims()")
         now = timegm(datetime.utcnow().utctimetuple())
-        self.__verify_iss(payload)
-        self.__verify_aud(payload)
         self.__verify_exp(payload, now)
         self.__verify_iat(payload, now)
+        self.__verify_iss(payload)
+        self.__verify_aud(payload)
 
     def __verify_iss(self, payload):
         logging.debug("starting __verify_iss()")
@@ -179,7 +175,7 @@ class JwtVerifier(object):
         exponent, modulus = self.__get_jwk(kid)
         numbers = RSAPublicNumbers(exponent, modulus)
         public_key = numbers.public_key(default_backend())
-        public_key_serialized = public_key.public_bytes(Encoding.PEM, PublicFormat.SubjectPublicKeyInfo)
+        public_key_serialized = public_key.public_bytes(self.PEM_ENCODING, self.PUBLIC_KEY_FORMAT)
         logging.debug("public key: {0}".format(public_key_serialized))
         return public_key
 

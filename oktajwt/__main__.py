@@ -1,6 +1,4 @@
 import json
-import logging
-import os
 import sys
 
 from .util.exceptions import *
@@ -14,8 +12,8 @@ def main():
 
     try:
         oktaJwt = JwtVerifier()
-        decoded_jwt = oktaJwt.decode(jwt)
-        print("decoded_jwt: {0}".format(json.dumps(decoded_jwt, indent=4, sort_keys=True)))
+        claims = oktaJwt.decode(jwt)
+        print("claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
 
         if oktaJwt.introspect(jwt):
             print("Issuer reports the token is still valid.")

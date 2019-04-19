@@ -26,8 +26,7 @@ Create a new OIDC web app in Okta. This is the client that you will create acces
 Create a `.env` file with these values (or just create environment variables directly).
 
 ```
-OKTA_ORG=https://<yoursubdomain>.okta.com
-AUTH_SERVER_ID=<Okta auth server ID>
+ISSUER=https://<yoursubdomain>.okta.com/oauth2/<Okta auth server ID>
 AUDIENCE=<OIDC audience from your app>
 CLIENT_ID=<OIDC client ID>
 CLIENT_SECRET=<OIDC client secret>
@@ -36,3 +35,33 @@ LOG_LEVEL=DEBUG|INFO|WARNING|ERROR
 
 ## Usage
 See [__main__.py](https://github.com/mdwallick/okta-jwt/blob/master/okta-jwt/__main__.py) for a basic usage example.
+
+```python
+import json
+import sys
+
+from .util.exceptions import *
+from .jwt import JwtVerifier
+
+def main():
+    jwt = sys.argv[1]
+
+    try:
+        oktaJwt = JwtVerifier()
+        claims = oktaJwt.decode(jwt)
+        print("claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
+
+        if oktaJwt.introspect(jwt):
+            print("Issuer reports the token is still valid.")
+        else:
+            print("Issuer reports the token is no longer valid.")
+
+    except ExpiredTokenError:
+        print("JWT signature is valid, but the token has expired!")
+
+    except InvalidSignatureError:
+        print("JWT signature validation failed!")
+
+if __name__ == "__main__":
+    main()
+```
