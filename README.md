@@ -34,7 +34,9 @@ LOG_LEVEL=DEBUG|INFO|WARNING|ERROR
 ```
 
 ## Usage
-See [__main__.py](https://github.com/mdwallick/okta-jwt/blob/master/okta-jwt/__main__.py) for a basic usage example.
+```
+python3 -m oktajwt <base64 encoded JWT>
+```
 
 ```python
 import json
