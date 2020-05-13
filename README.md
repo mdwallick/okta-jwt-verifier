@@ -23,14 +23,9 @@ Create a new OIDC web app in Okta. This is the client that you will create acces
 **3) Create an Authorization Server**
 
 ## Environment variables
-Create a `.env` file with these values (or just create environment variables directly).
-
+If you wish to see debugging information, set the environment variable LOG_LEVEL to DEBUG
 ```
-ISSUER=https://<yoursubdomain>.okta.com/oauth2/<Okta auth server ID>
-AUDIENCE=<OIDC audience from your app>
-CLIENT_ID=<OIDC client ID>
-CLIENT_SECRET=<OIDC client secret> or empty if using PKCE
-LOG_LEVEL=DEBUG|INFO|WARNING|ERROR
+export LOG_LEVEL=DEBUG
 ```
 
 ## Usage
