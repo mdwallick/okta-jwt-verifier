@@ -10,27 +10,33 @@ from .util.exceptions import (
 )
 
 def main(argv):
+    help_string_short_opts = "python -m oktajwt -i <issuer> -a <audience> -c <client_id> [-s <client_secret>] -j <base64 encoded JWT>"
+    help_string_long_opts = "python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> [--client_secret=<client_secret>] --jwt=<base64 encoded JWT>"
     if len(argv) == 0:
-        print("python -m oktajwt -i <issuer> -a <audience> -c <client_id> -j <base64 encoded JWT>")
-        print("python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> --jwt=<base64 encoded JWT>")
+        # print("len(argv) is 0")
+        print(help_string_short_opts)
+        print(help_string_long_opts)
         sys.exit(2)
 
     jwt = None
     issuer = None
     audience = None
     client_id = None
+    client_secret = None
 
     try:
-        opts, args = getopt.getopt(argv, "hi:a:c:j:", ["help", "issuer=", "audience=", "client_id=", "jwt="])
-    except getopt.GetoptError:
-        print("python -m oktajwt -i <issuer> -a <audience> -c <client_id> -j <base64 encoded JWT>")
-        print("python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> --jwt=<base64 encoded JWT>")
+        opts, args = getopt.getopt(argv, "a:c:hi:j:s:", ["help", "issuer=", "audience=", "client_id=", "client_secret=", "jwt="])
+    except getopt.GetoptError as ex:
+        print(ex)
+        print(help_string_short_opts)
+        print(help_string_long_opts)
         sys.exit(2)
     
     for opt, arg in opts:
       if opt in ("-h", "--help"):
-        print("python -m oktajwt -i <issuer> -a <audience> -c <client_id> -j <base64 encoded JWT>")
-        print("python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> --jwt=<base64 encoded JWT>")
+        # print("-h flag specified. Showing help text.")
+        print(help_string_short_opts)
+        print(help_string_long_opts)
         sys.exit()
       elif opt in ("-i", "--issuer"):
          issuer = arg
@@ -38,12 +44,14 @@ def main(argv):
          audience = arg
       elif opt in ("-c", "--client_id"):
          client_id = arg
+      elif opt in ("-s", "--client_secret"):
+          client_secret = arg
       elif opt in ("-j", "--jwt"):
          jwt = arg
  
     if issuer and client_id and audience and jwt:
         try:
-            oktaJwt = JwtVerifier(issuer, client_id)
+            oktaJwt = JwtVerifier(issuer, client_id, client_secret)
             claims = oktaJwt.verifyAccessToken(jwt, audience)
             print("Local JWT validation succeeded.")
             print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
@@ -66,8 +74,9 @@ def main(argv):
         except InvalidKeyError as key_error:
             print(key_error)
     else:
-        print("python -m oktajwt -i <issuer> -a <audience> -c <client_id> -j <base64 encoded JWT>")
-        print("python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> --jwt=<base64 encoded JWT>")
+        print("One or more of issuer, audience, client_id or jwt is missing")
+        print(help_string_short_opts)
+        print(help_string_long_opts)
         sys.exit(2)
 
 if __name__ == "__main__":

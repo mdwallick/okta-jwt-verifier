@@ -5,7 +5,6 @@ This is a simple JWT package built to work specifically with Okta's API Access M
 ## Requirements
 * Python >= 3.7
 * cryptography >= 2.9
-* python-dotenv >= 0.10.1
 * requests >= 2.23
 
 ## Dependencies
@@ -21,12 +20,6 @@ You can get a free developer account at https://developer.okta.com
 Create a new OIDC web app in Okta. This is the client that you will create access policies for.
 
 **3) Create an Authorization Server**
-
-## Environment variables
-If you wish to see debugging information, set the environment variable LOG_LEVEL to DEBUG
-```
-export LOG_LEVEL=DEBUG
-```
 
 ## Usage
 This module has a command line interface:
