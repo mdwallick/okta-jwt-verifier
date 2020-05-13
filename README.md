@@ -4,13 +4,13 @@ This is a simple JWT package built to work specifically with Okta's API Access M
 
 ## Requirements
 * Python >= 3.7
-* cryptography >= 2.6
+* cryptography >= 2.9
 * python-dotenv >= 0.10.1
-* requests >= 2.21
+* requests >= 2.23
 
 ## Dependencies
 You can install all the dependencies via the requirements.txt
-`pip3 install -r requirements.txt`
+`pip install -r requirements.txt`
 
 ## Okta Configuration Instructions
 **1) Okta Org**
@@ -29,14 +29,20 @@ Create a `.env` file with these values (or just create environment variables dir
 ISSUER=https://<yoursubdomain>.okta.com/oauth2/<Okta auth server ID>
 AUDIENCE=<OIDC audience from your app>
 CLIENT_ID=<OIDC client ID>
-CLIENT_SECRET=<OIDC client secret>
+CLIENT_SECRET=<OIDC client secret> or empty if using PKCE
 LOG_LEVEL=DEBUG|INFO|WARNING|ERROR
 ```
 
 ## Usage
+This module has a command line interface:
 ```
-python3 -m oktajwt <base64 encoded JWT>
+python -m oktajwt -i <issuer> -a <audience> -c <client_id> -j <base64 encoded JWT>
+
+python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> --jwt=<base64 encoded JWT>
 ```
+
+However, it's much more likely that this package will be used inside something like an API server, so the
+usage would look somethin like this:
 
 ```python
 import json
@@ -45,25 +51,29 @@ import sys
 from .util.exceptions import *
 from .jwt import JwtVerifier
 
-def main():
-    jwt = sys.argv[1]
+try:
+    oktaJwt = JwtVerifier(issuer, client_id)
+    # verifyAccessToken performs local JWT validation
+    claims = oktaJwt.verifyAccessToken(jwt, audience)
+    print("Local JWT validation succeeded.")
+    print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
 
-    try:
-        oktaJwt = JwtVerifier()
-        claims = oktaJwt.decode(jwt)
-        print("claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
+    # you could also call introspect() to query the issuer directly
+    print("Calling issuer's introspect endpoint for remote validation...")
+    if oktaJwt.introspect(jwt):
+        print("Issuer reports the token is still valid.")
+    else:
+        print("Issuer reports the token is no longer valid.")
 
-        if oktaJwt.introspect(jwt):
-            print("Issuer reports the token is still valid.")
-        else:
-            print("Issuer reports the token is no longer valid.")
+except ExpiredTokenError:
+    print("JWT signature is valid, but the token has expired!")
 
-    except ExpiredTokenError:
-        print("JWT signature is valid, but the token has expired!")
+except InvalidSignatureError:
+    print("JWT signature validation failed!")
 
-    except InvalidSignatureError:
-        print("JWT signature validation failed!")
+except KeyNotFoundError as key_error:
+    print(key_error)
 
-if __name__ == "__main__":
-    main()
+except InvalidKeyError as key_error:
+    print(key_error)
 ```

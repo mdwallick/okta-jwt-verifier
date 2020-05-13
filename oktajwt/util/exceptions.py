@@ -38,6 +38,10 @@ class InvalidKeyError(OktaError):
     pass
 
 
+class KeyNotFoundError(OktaError):
+    pass
+
+
 class InvalidAlgorithmError(InvalidTokenError):
     pass
 
