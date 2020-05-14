@@ -4,12 +4,70 @@ This is a simple JWT package built to work specifically with Okta's API Access M
 
 ## Requirements
 * Python >= 3.7
-* cryptography >= 2.9
-* requests >= 2.23
 
-## Dependencies
-You can install all the dependencies via the requirements.txt
-`pip install -r requirements.txt`
+## Installing
+Install with **pip**:
+`$ pip install OktaJWT`
+
+## Usage
+This module has a command line interface:
+```
+usage:
+    Decodes and verifies JWTs from an Okta authorization server.
+
+    oktajwt [options] <JWT>
+
+
+positional arguments:
+  JWT                   The base64 encoded JWT to decode and verify
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -v, --version         show program's version number and exit
+  -i ISSUER, --issuer ISSUER
+                        The expected issuer of the token
+  -a AUDIENCE, --audience AUDIENCE
+                        The expected audience of the token
+  -c CLIENT_ID, --client_id CLIENT_ID
+                        The OIDC client ID
+  -s CLIENT_SECRET, --client_secret CLIENT_SECRET
+                        The OIDC client secret (not required if using PKCE)
+```
+
+However, it's much more likely that this package will be used inside something like an API server, so the
+usage would look something more like this:
+
+```python
+import json
+from oktajwt import JwtVerifier
+
+issuer = "your OAuth issuer"
+client_id = "OIDC client ID"
+client_secret = "OIDC client secret or None if using PKCE"
+expectedAudience = "expected audience"
+accessToken = "your base64 encoded JWT, pulled out of the HTTP Authorization header bearer token"
+
+jwtVerifier = JwtVerifier(issuer, client_id, client_secret)
+
+# just check for validity, this includes checks on standard claims:
+#   * signature is valid
+#   * iss, aud, exp and iat claims are all present
+#   * iat is <= "now"
+#   * exp is >= "now"
+#   * iss matches the expexted issuer
+#   * aud matches the expected audience
+if jwtVerifier.isTokenValid(accessToken, expectedAudience):
+    print("Token is valid")
+else:
+    print("Token is not valid")
+
+# check for validity and get verified claims
+try:
+    claims = jwtVerifier.verifyAccessToken(accessToken, expectedAudience)
+    print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
+except Exception as e:
+    print("There was a problem verifying the token: ", e)
+```
 
 ## Okta Configuration Instructions
 **1) Okta Org**
@@ -18,50 +76,3 @@ You can get a free developer account at https://developer.okta.com
 
 **2) Create an OIDC Application**
 Create a new OIDC web app in Okta. This is the client that you will create access policies for.
-
-**3) Create an Authorization Server**
-
-## Usage
-This module has a command line interface:
-```
-python -m oktajwt -i <issuer> -a <audience> -c <client_id> -j <base64 encoded JWT>
-
-python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> --jwt=<base64 encoded JWT>
-```
-
-However, it's much more likely that this package will be used inside something like an API server, so the
-usage would look somethin like this:
-
-```python
-import json
-import sys
-
-from .util.exceptions import *
-from .jwt import JwtVerifier
-
-try:
-    oktaJwt = JwtVerifier(issuer, client_id)
-    # verifyAccessToken performs local JWT validation
-    claims = oktaJwt.verifyAccessToken(jwt, audience)
-    print("Local JWT validation succeeded.")
-    print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
-
-    # you could also call introspect() to query the issuer directly
-    print("Calling issuer's introspect endpoint for remote validation...")
-    if oktaJwt.introspect(jwt):
-        print("Issuer reports the token is still valid.")
-    else:
-        print("Issuer reports the token is no longer valid.")
-
-except ExpiredTokenError:
-    print("JWT signature is valid, but the token has expired!")
-
-except InvalidSignatureError:
-    print("JWT signature validation failed!")
-
-except KeyNotFoundError as key_error:
-    print(key_error)
-
-except InvalidKeyError as key_error:
-    print(key_error)
-```

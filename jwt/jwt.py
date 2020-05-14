@@ -30,7 +30,7 @@ class JwtVerifier:
     PUBLIC_KEY_FORMAT = PublicFormat.SubjectPublicKeyInfo
     logger = logging.getLogger(__name__)
 
-    def __init__(self, issuer, client_id, client_secret=None):
+    def __init__(self, issuer, client_id, client_secret=None, debug=False):
         self.issuer = issuer
         self.client_id = client_id
         self.client_secret = client_secret
@@ -50,7 +50,7 @@ class JwtVerifier:
             return False
 
 
-    # verify the access token locally
+    # verify the access token locally and return the claims
     def verifyAccessToken(self, accessToken, expectedAudience):
         jwt = self.__decodeAsClaims(accessToken)
         self.__verify_aud(jwt["aud"], expectedAudience)
@@ -60,30 +60,6 @@ class JwtVerifier:
         self.__verify_iat(jwt["iat"], now)
         self.logger.debug("JWT is valid")
         return jwt
-
-
-    # remote introspection at the issuer
-    def introspect(self, jwt):
-        logging.debug("starting introspect()")
-        encoded_auth = self.__get_encoded_auth(self.client_id, self.client_secret)
-        logging.debug("Basic authorization: {0}".format(encoded_auth))
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": "Basic {0}".format(encoded_auth)
-        }
-        uri = "{issuer}/v1/introspect?token={token}&token_type_hint=access_token".format(
-            issuer=self.issuer,
-            token=jwt
-        )
-        response = Http.execute_post(uri, headers=headers)
-        logging.debug("introspect(): {0}".format(self.__dump_json(response)))
-
-        active = False
-        if "active" in response:
-            return response["active"] == True
-        
-        return active
 
 
     """
