@@ -5,7 +5,7 @@ import sys
 from .jwt import JwtVerifier
 from . import __version__ as application
 
-from .util.exceptions import (
+from .exceptions import (
     OktaError, DecodeError, InvalidSignatureError, InvalidIssuerError, 
     MissingRequiredClaimError, InvalidAudienceError, ExpiredTokenError, 
     InvalidIssuedAtError, InvalidKeyError, KeyNotFoundError

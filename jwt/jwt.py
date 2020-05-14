@@ -15,8 +15,8 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey, RSAPublicNumbers
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
-from .util.http import Http
-from .util.exceptions import (
+from .http import Http
+from .exceptions import (
     OktaError, DecodeError, InvalidSignatureError, InvalidIssuerError, 
     MissingRequiredClaimError, InvalidAudienceError, ExpiredTokenError, 
     InvalidIssuedAtError, InvalidKeyError, KeyNotFoundError

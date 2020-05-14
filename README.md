@@ -72,10 +72,29 @@ except Exception as e:
 ```
 
 ## Okta Configuration
-**Okta Org**
-You need to have an Okta org with API Access management available. You can get a free developer account at https://developer.okta.com.
+**NOTE:**, this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque and no public key is published.
 
-**NOTE:**, this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque (and no public key is published).
+**Okta Org**
+You need to have an Okta org with API Access management available. You can get a free developer account at https://developer.okta.com. Developer tenants will have API Access Management available.
+
+"How can I tell if I have API Access Management enabled or not?"
+
+It's actually quite easy. Copy this link and replace the subdomain with yours (your subdomain will look like dev-123456).
+
+https://<YOUR_SUBDOMAIN>.okta.com/oauth2/default/.well-known/oauth-authorization-server
+
+Paste the link with your subdomain in your browser and if you see this:
+
+```json
+{
+    "errorCode": "E0000015",
+    "errorSummary": "You do not have permission to access the feature you are requesting",
+    "errorLink": "E0000015",
+    "errorId": "oaeNmCVqapuSJWf017UlTMjbg",
+    "errorCauses": []
+}
+```
+You don't have API Access Management enabled in your org.
 
 **Create an OIDC Application**
 Create a new OIDC application in Okta. This is where you'll get the client ID and client secret values. If you create an app that uses PKCE, a client secret value is not necessary and will not be generated.
