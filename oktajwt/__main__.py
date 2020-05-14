@@ -9,10 +9,10 @@ from .util.exceptions import (
     InvalidIssuedAtError, InvalidKeyError, KeyNotFoundError
 )
 
-def main(argv):
+def main():
     help_string_short_opts = "python -m oktajwt -i <issuer> -a <audience> -c <client_id> [-s <client_secret>] -j <base64 encoded JWT>"
     help_string_long_opts = "python -m oktajwt --issuer=<issuer> --audience=<audience> --client_id=<client_id> [--client_secret=<client_secret>] --jwt=<base64 encoded JWT>"
-    if len(argv) == 0:
+    if len(sys.argv[1:]) == 0:
         # print("len(argv) is 0")
         print(help_string_short_opts)
         print(help_string_long_opts)
@@ -25,7 +25,7 @@ def main(argv):
     client_secret = None
 
     try:
-        opts, args = getopt.getopt(argv, "a:c:hi:j:s:", ["help", "issuer=", "audience=", "client_id=", "client_secret=", "jwt="])
+        opts, args = getopt.getopt(sys.argv[1:], "a:c:hi:j:s:", ["help", "issuer=", "audience=", "client_id=", "client_secret=", "jwt="])
     except getopt.GetoptError as ex:
         print(ex)
         print(help_string_short_opts)
@@ -78,6 +78,3 @@ def main(argv):
         print(help_string_short_opts)
         print(help_string_long_opts)
         sys.exit(2)
-
-if __name__ == "__main__":
-    main(sys.argv[1:])

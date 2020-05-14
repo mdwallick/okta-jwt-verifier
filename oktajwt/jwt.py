@@ -22,29 +22,32 @@ from .util.exceptions import (
     InvalidIssuedAtError, InvalidKeyError, KeyNotFoundError
 )
 
-class JwtVerifier(object):
+class JwtVerifier:
 
     PADDING = padding.PKCS1v15()
     HASH_ALGORITHM = hashes.SHA256()
     PEM_ENCODING = Encoding.PEM
     PUBLIC_KEY_FORMAT = PublicFormat.SubjectPublicKeyInfo
+    logger = logging.getLogger(__name__)
 
     def __init__(self, issuer, client_id, client_secret=None):
-        loglevel = logging.WARNING
-
-        if "LOG_LEVEL" in os.environ:
-            loglevel = os.getenv("LOG_LEVEL")
-
-        logging.basicConfig(level=loglevel)
-
         self.issuer = issuer
         self.client_id = client_id
         self.client_secret = client_secret
-
-        logging.debug("Issuer:        {0}".format(self.issuer))
-        logging.debug("Client ID:     {0}".format(self.client_id))
+        self.logger.debug("Issuer:        {0}".format(self.issuer))
+        self.logger.debug("Client ID:     {0}".format(self.client_id))
         if (self.client_secret == None):
-            logging.debug("Client secret: None. Assuming PKCE.")
+            self.logger.debug("Client secret: None. Assuming PKCE.")
+
+
+    def isTokenValid(self, accessToken, expectedAudience):
+        try:
+            accessToken = self.verifyAccessToken(accessToken, expectedAudience)
+            # if the jwt verifies successfully, we know it's valid
+            return True
+        except Exception as ex:
+            self.logger.warning(ex)
+            return False
 
 
     # verify the access token locally
@@ -55,6 +58,7 @@ class JwtVerifier(object):
         now = timegm(datetime.utcnow().utctimetuple())
         self.__verify_exp(jwt["exp"], now)
         self.__verify_iat(jwt["iat"], now)
+        self.logger.debug("JWT is valid")
         return jwt
 
 
@@ -86,10 +90,9 @@ class JwtVerifier(object):
     private/helper functions
     """
     def __decodeAsClaims(self, jwt):
-        # decode the token and validate the signature
-        # but we'll leave claim validation for a different function
         logging.debug("starting __decodeAsClaims()")
-
+        # decode the token, validate the signature
+        # and check for required claims
         payload = self.__decode(jwt)
         # check for the existence of required claims
         if "iss" not in payload:

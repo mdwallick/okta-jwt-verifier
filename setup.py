@@ -12,10 +12,10 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'okta-jwt-verifier'
-DESCRIPTION = 'A subset of RFC 7519 for working with JWTs minted by Okta.'
+NAME = 'OktaJWT'
+DESCRIPTION = 'A subset of RFC 7519 for working with JWTs minted by Okta API Access Management.'
 URL = 'https://github.com/mdwallick/okta-jwt'
-EMAIL = 'mike.wallick@okta.com'
+EMAIL = 'mike@wallick.net'
 AUTHOR = 'Mike Wallick'
 REQUIRES_PYTHON = '>=3.7.0'
 VERSION = None
@@ -23,7 +23,7 @@ VERSION = None
 # What packages are required for this module to be executed?
 REQUIRED = [
     # 'requests', 'maya', 'records',
-    'cryptography', 'python-dotenv', 'requests'
+    'cryptography', 'requests'
 ]
 
 # What packages are optional?
@@ -109,7 +109,7 @@ setup(
     # py_modules=['mypackage'],
 
     entry_points={
-        'console_scripts': ['oktajwt=oktajwt.jwt.__main__:main'],
+        'console_scripts': ['oktajwt=__main__:main'],
     },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
