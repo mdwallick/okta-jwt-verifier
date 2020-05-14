@@ -7,7 +7,9 @@ This is a simple JWT package built to work specifically with Okta's API Access M
 
 ## Installing
 Install with **pip**:
-`$ pip install OktaJWT`
+```
+$ pip install OktaJWT
+```
 
 ## Usage
 This module has a command line interface:
@@ -69,10 +71,11 @@ except Exception as e:
     print("There was a problem verifying the token: ", e)
 ```
 
-## Okta Configuration Instructions
-**1) Okta Org**
-You need to have an Okta org with API Access management available.
-You can get a free developer account at https://developer.okta.com
+## Okta Configuration
+**Okta Org**
+You need to have an Okta org with API Access management available. You can get a free developer account at https://developer.okta.com.
 
-**2) Create an OIDC Application**
-Create a new OIDC web app in Okta. This is the client that you will create access policies for.
+**NOTE:**, this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque (and no public key is published).
+
+**Create an OIDC Application**
+Create a new OIDC application in Okta. This is where you'll get the client ID and client secret values. If you create an app that uses PKCE, a client secret value is not necessary and will not be generated.
