@@ -13,7 +13,6 @@ from setuptools import find_packages, setup, Command
 
 # Package meta-data.
 NAME = "OktaJWT"
-MAIN_DIR = "jwt"
 DESCRIPTION = "A subset of RFC 7519 for working with JWTs minted by Okta API Access Management."
 URL = "https://github.com/mdwallick/okta-jwt"
 EMAIL = "mike@wallick.net"
@@ -50,8 +49,7 @@ except FileNotFoundError:
 # Load the package's __version__.py module as a dictionary.
 about = {}
 if not VERSION:
-    #project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
-    project_slug = MAIN_DIR.lower().replace("-", "_").replace(" ", "_")
+    project_slug = NAME.lower().replace("-", "_").replace(" ", "_")
     with open(os.path.join(here, project_slug, '__version__.py')) as f:
         exec(f.read(), about)
 else:
