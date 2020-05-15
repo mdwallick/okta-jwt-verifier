@@ -12,7 +12,7 @@ $ pip install OktaJWT
 ```
 
 ## Usage
-This package is very simple; there are two functions:
+This package is very simple; there are two functions, `is_token_valid()` and `decode()`.
 
 ```python
 from oktajwt import JwtVerifier
@@ -94,7 +94,7 @@ except Exception as e:
 ```
 
 ## Okta Configuration
-**NOTE:**, this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque and no public key is published.
+**NOTE:** this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque and no public key is published.
 
 **Okta Org**
 You need to have an Okta org with API Access management available. You can get a free developer account at https://developer.okta.com. Developer tenants will have API Access Management available.
