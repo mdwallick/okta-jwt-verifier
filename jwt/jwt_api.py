@@ -48,14 +48,12 @@ class JwtVerifier:
             self.logger.debug("Client secret: None. Assuming PKCE.")
 
 
-    def decode(self, access_token: str, expected_audience: str, 
-                remote_validation=False) -> json:
+    def decode(self, access_token, expected_audience, remote_validation=False):
         """ Verify the access token and return the claims as JSON """
         return self.__decode_as_claims(access_token, expected_audience)
 
 
-    def is_token_valid(self, access_token: str, expected_audience: str, 
-                        remote_validation=False) -> bool:
+    def is_token_valid(self, access_token, expected_audience, remote_validation=False):
         """ Verify the access token and return True/False """
         if remote_validation:
             response = self.__introspect_remote(access_token)
