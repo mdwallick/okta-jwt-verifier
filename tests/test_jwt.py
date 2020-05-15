@@ -1,10 +1,12 @@
 import json
+import pytest
 import time
+
 from calendar import timegm
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from jwt import JwtVerifier
+from jwt.jwt_api import JwtVerifier
 from jwt.exceptions import (
     OktaError,
     DecodeError,
@@ -21,8 +23,8 @@ from jwt.exceptions import (
 from .utils import utc_timestamp, has_crypto
 
 #@pytest.fixture
-def jwt():
-    return JwtVerifier()
+# def jwt():
+#     return JwtVerifier()
 
 
 #@pytest.fixture
@@ -34,3 +36,10 @@ def payload():
         "exp": utc_timestamp() + 15,
         "uat": utc_timestamp() - 15
     }
+
+class TestJwt():
+    def func(self, x):
+        return x + 1
+
+    def test_answer(self):
+        assert self.func(3) == 5

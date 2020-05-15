@@ -2,7 +2,7 @@ import argparse
 import json
 import sys
 
-from .jwt import JwtVerifier
+from .jwt_api import JwtVerifier
 from . import __version__ as application
 
 from .exceptions import (
@@ -21,12 +21,18 @@ def get_argparser():
     arg_parser = argparse.ArgumentParser(prog="oktajwt", usage=usage)
 
     arg_parser.add_argument(
-        "-v",
         "--version",
         action="version",
         version="%(prog)s " + application.__version__
     )
 
+    arg_parser.add_argument(
+        "--verbosity",
+        type=int,
+        choices=[0, 1, 2],
+        help="increase output verbosity"
+    )
+    
     arg_parser.add_argument(
         "-i",
         "--issuer",
@@ -60,6 +66,13 @@ def get_argparser():
     )
 
     arg_parser.add_argument(
+        "--claims",
+        action="store_true",
+        required=False,
+        help="Show verified claims in addition to validating the JWT"
+    )
+
+    arg_parser.add_argument(
         "jwt",
         metavar="JWT",
         default=None,
@@ -73,23 +86,16 @@ def main():
 
     try:
         args = arg_parser.parse_args(sys.argv[1:])
-        jwtVerifier = JwtVerifier(args.issuer, args.client_id, args.client_secret)
-        claims = jwtVerifier.verifyAccessToken(args.jwt, args.audience)
-        print("Local JWT validation succeeded.")
-        print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
+        jwtVerifier = JwtVerifier(args.issuer, args.client_id, args.client_secret, args.verbosity)
+        is_valid = jwtVerifier.is_token_valid(args.jwt, args.audience)
+        if is_valid:
+            print("JWT is valid. Claims can be trusted.")
+            if args.claims:
+                claims = jwtVerifier.decode(args.jwt, args.audience)
+                print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
+        else:
+            print("JWT is not valid.")        
 
-    except ExpiredTokenError:
-        print("JWT signature is valid, but the token has expired!")
-
-    except InvalidSignatureError:
-        print("JWT signature validation failed!")
-    
-    except KeyNotFoundError as key_error:
-        print(key_error)
-
-    except InvalidKeyError as key_error:
-        print(key_error)
-    
     except Exception as e:
         print("There was an unforseen error: ", e)
         arg_parser.print_help()

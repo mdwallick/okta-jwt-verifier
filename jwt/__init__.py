@@ -1,4 +1,4 @@
-from .jwt import JwtVerifier
+from .jwt_api import JwtVerifier
 
 from .exceptions import (
     OktaError,

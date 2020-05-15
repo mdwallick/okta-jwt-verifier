@@ -30,43 +30,96 @@ class JwtVerifier:
     PUBLIC_KEY_FORMAT = PublicFormat.SubjectPublicKeyInfo
     logger = logging.getLogger(__name__)
 
-    def __init__(self, issuer, client_id, client_secret=None, debug=False):
+    def __init__(self, issuer, client_id, client_secret=None, verbosity=0):
+        if verbosity == 2:
+            logging.basicConfig(level="DEBUG")
+        elif verbosity == 1:
+            logging.basicConfig(level="INFO")
+        else:
+            logging.basicConfig(level="WARNING")
+
         self.issuer = issuer
         self.client_id = client_id
         self.client_secret = client_secret
+        
         self.logger.debug("Issuer:        {0}".format(self.issuer))
         self.logger.debug("Client ID:     {0}".format(self.client_id))
         if (self.client_secret == None):
             self.logger.debug("Client secret: None. Assuming PKCE.")
 
 
-    def isTokenValid(self, accessToken, expectedAudience):
-        try:
-            accessToken = self.verifyAccessToken(accessToken, expectedAudience)
-            # if the jwt verifies successfully, we know it's valid
-            return True
-        except Exception as ex:
-            self.logger.warning(ex)
-            return False
+    def decode(self, access_token: str, expected_audience: str, 
+                remote_validation=False) -> json:
+        """ Verify the access token and return the claims as JSON """
+        return self.__decode_as_claims(access_token, expected_audience)
 
 
-    # verify the access token locally and return the claims
-    def verifyAccessToken(self, accessToken, expectedAudience):
-        jwt = self.__decodeAsClaims(accessToken)
-        self.__verify_aud(jwt["aud"], expectedAudience)
-        self.__verify_iss(jwt["iss"], self.issuer)
-        now = timegm(datetime.utcnow().utctimetuple())
-        self.__verify_exp(jwt["exp"], now)
-        self.__verify_iat(jwt["iat"], now)
-        self.logger.debug("JWT is valid")
-        return jwt
+    def is_token_valid(self, access_token: str, expected_audience: str, 
+                        remote_validation=False) -> bool:
+        """ Verify the access token and return True/False """
+        if remote_validation:
+            response = self.__introspect_remote(access_token)
+            active = False
+
+            if "active" in response:
+                active = response["active"] == True
+            
+            return active
+        else:
+            return self.__introspect(access_token, expected_audience)
 
 
     """
     private/helper functions
     """
-    def __decodeAsClaims(self, jwt):
-        logging.debug("starting __decodeAsClaims()")
+
+    # local introspection
+    def __introspect(self, access_token, expected_audience):
+        try:
+            claims = self.__decode_as_claims(access_token, expected_audience)
+            self.logger.debug("Claims: {0}".format(claims))
+            return True
+        
+        except ExpiredTokenError:
+            self.logger.error("JWT signature is valid, but the token has expired!")
+            return False
+
+        except InvalidSignatureError:
+            self.logger.error("JWT signature validation failed!")
+            return False
+        
+        except KeyNotFoundError as key_error:
+            self.logger.error(key_error)
+            return False
+
+        except InvalidKeyError as key_error:
+            self.logger.error(key_error)
+            return False
+    
+        except Exception as e:
+            self.logger.error(e)
+            return False
+
+    # remote introspection at the issuer
+    def __introspect_remote(self, access_token):
+        self.logger.debug("starting introspect()")
+        encoded_auth = self.__get_encoded_auth(self.client_id, self.client_secret)
+        self.logger.debug("Basic authorization: {0}".format(encoded_auth))
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Authorization": "Basic {0}".format(encoded_auth)
+        }
+        uri = "{issuer}/v1/introspect?token={token}&token_type_hint=access_token".format(
+            issuer=self.issuer,
+            token=access_token
+        )
+        response = Http.execute_post(uri, headers=headers)
+        self.logger.debug("introspect(): {0}".format(self.__dump_json(response)))
+        return response
+
+    def __decode_as_claims(self, jwt, expected_audience):
+        self.logger.debug("starting __decodeAsClaims()")
         # decode the token, validate the signature
         # and check for required claims
         payload = self.__decode(jwt)
@@ -83,10 +136,16 @@ class JwtVerifier:
         if "iat" not in payload:
             raise MissingRequiredClaimError("iat")
 
+        self.__verify_aud(payload["aud"], expected_audience)
+        self.__verify_iss(payload["iss"], self.issuer)
+        now = timegm(datetime.utcnow().utctimetuple())
+        self.__verify_exp(payload["exp"], now)
+        self.__verify_iat(payload["iat"], now)
+        self.logger.debug("JWT is valid")
         return payload
 
     def __decode(self, jwt):
-        logging.debug("starting __decode()")
+        self.logger.debug("starting __decode()")
         # to decode:
         # 1. crack open the token and get the header, payload, signature
         #    and signed message (header + payload)
@@ -95,11 +154,11 @@ class JwtVerifier:
         # 2. verify the signature on the JWT
         if self.__verify_signature(signature, signed_message, header["kid"]):
             # 3. if the signature is valid, try to parse the payload into JSON
-            logging.debug("Trying to parse the payload into JSON")
+            self.logger.debug("Trying to parse the payload into JSON")
             try:
                 payload = json.loads(payload.decode("utf-8"))
-                logging.debug("JSON is well-formed")
-                logging.debug(self.__dump_json(payload))
+                self.logger.debug("JSON is well-formed")
+                self.logger.debug(self.__dump_json(payload))
             except ValueError as e:
                 raise DecodeError("Invalid payload JSON: %s" % e)
 
@@ -109,17 +168,17 @@ class JwtVerifier:
             raise InvalidSignatureError("Signature is not valid")
 
     def __verify_iss(self, issuer, expected):
-        logging.debug("starting __verify_iss()")
+        self.logger.debug("starting __verify_iss()")
         if issuer != expected:
             raise InvalidIssuerError("This token isn't from who you think it's from (Issuer mismatch).")
 
     def __verify_aud(self, audience, expected):
-        logging.debug("starting __verify_aud()")
+        self.logger.debug("starting __verify_aud()")
         if audience != expected:
             raise InvalidAudienceError("This token is not for your eyes (Audience mismatch).")
 
     def __verify_exp(self, expiration, now):
-        logging.debug("starting __verify_exp()")
+        self.logger.debug("starting __verify_exp()")
         try:
             exp = int(expiration)
         except ValueError:
@@ -129,7 +188,7 @@ class JwtVerifier:
             raise ExpiredTokenError("This JWT is expired.")
 
     def __verify_iat(self, issued, now):
-        logging.debug("starting __verify_iat()")
+        self.logger.debug("starting __verify_iat()")
         try:
             iat = int(issued)
         except ValueError:
@@ -139,27 +198,27 @@ class JwtVerifier:
             raise InvalidIssuedAtError("This JWT is not yet valid (iat).")
 
     def __verify_signature(self, signature, message, kid):
-        logging.debug("starting __verify_signature()")
+        self.logger.debug("starting __verify_signature()")
         public_key = self.__get_public_key(kid)
         try:
             public_key.verify(signature, message, self.PADDING, self.HASH_ALGORITHM)
-            logging.info("JWT signature is valid")
+            self.logger.info("JWT signature is valid")
             return True
         except InvalidSignature:
             return False
 
     def __get_public_key(self, kid):
-        logging.debug("starting __get_public_key()")
+        self.logger.debug("starting __get_public_key()")
         # get the exponent and modulus from the jwk so we can get the public key
         exponent, modulus = self.__get_jwk(kid)
         numbers = RSAPublicNumbers(exponent, modulus)
         public_key = numbers.public_key(default_backend())
         public_key_serialized = public_key.public_bytes(self.PEM_ENCODING, self.PUBLIC_KEY_FORMAT)
-        logging.debug("public key: {0}".format(public_key_serialized))
+        self.logger.debug("public key: {0}".format(public_key_serialized))
         return public_key
 
     def __get_jwk(self, kid):
-        logging.debug("starting __get_jwk()")
+        self.logger.debug("starting __get_jwk()")
         jwk = self.__get_jwk_by_id(kid)
         # return the exponent and modulus of the public key
         exponent = self.__base64_to_int(jwk["e"].encode("utf-8"))
@@ -167,15 +226,15 @@ class JwtVerifier:
         return (exponent, modulus)
 
     def __get_jwk_by_id(self, kid):
-        logging.debug("starting __get_jwk_by_id()")
+        self.logger.debug("starting __get_jwk_by_id()")
         jwks_uri = "{issuer}/v1/keys".format(issuer=self.issuer)
         response = Http.execute_get(jwks_uri)
-        logging.debug("Got response: {0}".format(response))
+        self.logger.debug("Got response: {0}".format(response))
         try:
             keys = response["keys"]
             for jwk in keys:
                 if jwk["kid"] == kid:
-                    logging.debug("Got jwk: {0}".format(self.__dump_json(jwk)))
+                    self.logger.debug("Got jwk: {0}".format(self.__dump_json(jwk)))
                     return jwk
             
             # if we get here, we got a key set, but no key matched the ID
