@@ -15,7 +15,7 @@ $ pip install OktaJWT
 This package is very simple; there are two functions, `is_token_valid()` and `decode()`.
 
 ```python
-from oktajwt import JwtVerifier
+from oktajwt import *
 
 issuer = "your OAuth issuer"
 client_id = "OIDC client ID"
@@ -58,40 +58,50 @@ optional arguments:
   --claims              Show verified claims in addition to validating the JWT
 ```
 
-However, it's much more likely that this package will be used inside something like an API server, so the
-usage would look something more like this:
+However, it's much more likely that this package will be used inside something like Flask API server, so the
+usage would look something more like this.
 
 ```python
 import json
-from oktajwt import JwtVerifier
+import request
+from oktajwt import *
 
-issuer = "your OAuth issuer"
-client_id = "OIDC client ID"
-client_secret = "OIDC client secret or None if using PKCE"
-expected_audience = "expected audience"
-access_token = "your base64 encoded JWT, pulled out of the HTTP Authorization header bearer token"
+def get_access_token():
+    access_token = None
+    authorization_header = request.headers.get("authorization")
+    print("Authorization header {0}".format(authorization_header))
 
-try:
-    jwtVerifier = JwtVerifier(issuer, client_id, client_secret)
+    if authorization_header != None:
+        header = "Bearer"
+        bearer, access_token = authorization_header.split(" ")
+        if bearer != header:
+            abort(401)
 
-    # just check for validity, this includes checks on standard claims:
-    #   * signature is valid
-    #   * iss, aud, exp and iat claims are all present
-    #   * iat is <= "now"
-    #   * exp is >= "now"
-    #   * iss matches the expexted issuer
-    #   * aud matches the expected audience
-    if jwtVerifier.is_token_valid(access_token, expected_audience):
-        print("Token is valid")
-    else:
-        print("Token is not valid")
+    return access_token
 
-    # check for validity and get verified claims
-    claims = jwtVerifier.decode(access_token, expected_audience)
-    print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
-except Exception as e:
-    print("There was a problem verifying the token: ", e)
+@app.route("/api/v1/token_test", methods=["GET"])
+def token_test():
+    """ a simple route to show token validation """
+    logger.debug("token_test()")
+    access_token = get_access_token()
+    issuer = os.getenv("ISSUER")
+    client_id = os.getenv("CLIENT_ID")
+    client_secret = os.getenv("CLIENT_SECRET")
+    audience = os.getenv("AUDIENCE")
+
+    try:
+        jwtVerifier = JwtVerifier(issuer, client_id, client_secret)
+        claims = jwtVerifier.decode(access_token, audience)
+        return jsonify(claims)
+    except (ExpiredTokenError, InvalidSignatureError, KeyNotFoundError, 
+            InvalidKeyError, Exception) as e:
+        # something is wrong with the token
+        # expired, bad signature, etc.
+        logger.debug("Exception in token_test(): {0}".format(e))
+        abort(401)
 ```
+
+If you're interested, I have a [super basic Flask API server](https://github.com/mdwallick/okta-admin-api) that fronts a subset of the Okta APIs (users, groups, factors) that uses this package as an example.
 
 ## Okta Configuration
 **NOTE:** this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque and no public key is published.
