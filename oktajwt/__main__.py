@@ -119,14 +119,13 @@ def main():
                 cache=args.cache,
                 verbosity=args.verbosity)
 
-        is_valid = jwtVerifier.is_token_valid(args.jwt, args.audience)
-        if is_valid:
+        try:
+            claims = jwtVerifier.verify(args.jwt, args.audience)
             print("JWT is valid. Claims can be trusted.")
             if args.claims:
-                claims = jwtVerifier.decode(args.jwt, args.audience)
                 print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
-        else:
-            print("JWT is not valid.")        
+        except Exception as e:
+            print("JWT is not valid: {0}".format(e))
 
     except Exception as e:
         print("Invalid command: ", e)

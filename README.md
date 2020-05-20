@@ -12,7 +12,7 @@ $ pip install oktajwt
 ```
 
 ## Usage
-This package is very simple; there are two functions, `is_token_valid()` and `decode()`.
+This package is very simple, there is a single function: `decode()`.
 
 ```python
 from oktajwt import *
@@ -30,16 +30,15 @@ jwtVerifier = JwtVerifier(issuer="OAUTH issuer URI",
     bucket="S3 bucket to cache to. Required if cache=S3"
 )
 
-# just check to see if the token is valid or not
-is_valid = jwtVerifier.is_token_valid(access_token, expected_audience)
-
 # validate the token and get claims as a JSON dict
 claims = jwtVerifier.decode(access_token, expected_audience)
+print("iss {0}".format(claims["iss"]))
+print("aud {0}".format(claims["aud"]))
 print("sub {0}".format(claims["sub"]))
 print("exp {0}".format(claims["exp"]))
 ```
 
-This module also has a basic command line interface:
+This module also has a basic command line interface just as an example:
 ```
 usage:
     Decodes and verifies JWTs from an Okta authorization server.
@@ -111,7 +110,7 @@ def token_test():
             cache=cache_method,
             bucket=s3_bucket
         )       
-        claims = jwtVerifier.decode(access_token, audience)
+        claims = jwtVerifier.verify(access_token, audience)
         return jsonify(claims)
     except (ExpiredTokenError, InvalidSignatureError, KeyNotFoundError, 
             InvalidKeyError, Exception) as e:

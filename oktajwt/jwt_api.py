@@ -21,10 +21,19 @@ from .file_cache_plugin import FileCachePlugin
 from .s3_cache_plugin import S3CachePlugin
 
 from .exceptions import (
-    OktaError, DecodeError, InvalidSignatureError, InvalidIssuerError,
-    MissingRequiredClaimError, InvalidAudienceError, ExpiredTokenError,
-    InvalidIssuedAtError, InvalidKeyError, KeyNotFoundError, CacheObjectNotFoundError
+    OktaError,
+    DecodeError,
+    InvalidSignatureError,
+    InvalidIssuerError,
+    MissingRequiredClaimError,
+    InvalidAudienceError,
+    ExpiredTokenError,
+    InvalidIssuedAtError,
+    InvalidKeyError,
+    KeyNotFoundError,
+    CacheObjectNotFoundError
 )
+
 
 class JwtVerifier:
 
@@ -35,10 +44,13 @@ class JwtVerifier:
     logger = logging.getLogger(__name__)
 
     def __init__(self, *args, **kwargs):
+        # used to store the issuer from the incoming JWT
+        self.reported_issuer = None
+
         if "verbosity" in kwargs and kwargs["verbosity"] == 2:
             logging.basicConfig(level="DEBUG")
         elif "verbosity" in kwargs and kwargs["verbosity"] == 1:
-                logging.basicConfig(level="INFO")
+            logging.basicConfig(level="INFO")
         else:
             logging.basicConfig(level="ERROR")
 
@@ -65,88 +77,91 @@ class JwtVerifier:
             home_dir = str(Path.home())
             cache_dir = "{0}/.oktajwt".format(home_dir)
             self.jwks_cache = FileCachePlugin(cache_dir)
-            self.logger.info("Caching: filesystem with cache directory {0}".format(cache_dir))
+            self.logger.info(
+                "Caching: filesystem with cache directory {0}".format(cache_dir))
         else:
             if kwargs["cache"] == "S3":
                 if "bucket" in kwargs and kwargs["bucket"]:
                     bucket = kwargs["bucket"]
                     self.jwks_cache = S3CachePlugin(bucket)
-                    self.logger.info("Caching: S3 with bucket {0}".format(bucket))
+                    self.logger.info(
+                        "Caching: S3 with bucket {0}".format(bucket))
                 else:
                     raise ValueError("Bucket is required if cache is S3")
             else:
-                raise ValueError("Unknow caching method {0}".format(kwargs["cache"]))
+                raise ValueError(
+                    "Unknow caching method {0}".format(kwargs["cache"]))
 
-    
-    def decode(self, access_token, expected_audience):
+    def verify(self, access_token, expected_audience):
         """
         Verify the access token and return the claims as JSON.
 
         """
-        return self.__decode_as_claims(access_token, expected_audience)
+        return self.__decode(access_token, expected_audience)
 
-    
-    def is_token_valid(self, access_token, expected_audience):
-        """
-        Verify the access token and return True/False.
+    def __decode(self, jwt, expected_audience):
+        self.logger.info("starting __decode()")
+        # crack open the token and get the header, payload, signature
+        # and signed message (header + payload)
+        header, payload, signature, signed_message = self.__get_jwt_parts(jwt)
 
-        """
-        return self.__introspect(access_token, expected_audience)
+        # get the issuer and audience from the JWT
+        self.reported_issuer = payload["iss"]
+        self.reported_audience = payload["aud"]
 
-    # local introspection
-    def __introspect(self, access_token, expected_audience):
+        self.logger.info("Reported issuer:   {0}".format(self.reported_issuer))
+        self.logger.info("Reported audience: {0}".format(self.reported_audience))
+
+        # validate the signature. at this point we know that we
+        # at least have well-formed JSON for the header and payload
+        if self.__verify_signature(signature, signed_message, header["kid"]):
+            # parse the token and validate the claims
+            self.logger.info("Trying to parse the payload into JSON")
+            try:
+                # verify and return the payload
+                return self.__verify_payload(payload, expected_audience)
+            except ValueError as e:
+                raise DecodeError("Invalid payload JSON: %s" % e)
+        else:
+            raise InvalidSignatureError("Signature is not valid")
+
+    def __get_jwt_parts(self, jwt):
+        # decode the JWT and return the header as JSON,
+        # the payload as a b64 decoded byte array
+        # the signature as a b64 decoded byte array
+        if isinstance(jwt, str):
+            jwt = jwt.encode("utf-8")
+
+        # the JWT looks like this:
+        # <b64 header>.<b64 payload>.<b64 signature>
+        # signed_message is the header+payload in its raw JWT form
+        #  e.g. <b64 header>.<b64 payload> (including the period)
+        # signature_chunk is the raw signature from the JWT
+        #  e.g. <b64 signature>
+        signed_message, signature_chunk = jwt.rsplit(b".", 1)
+        header_chunk, payload_chunk = signed_message.split(b".", 1)
+
+        # make sure the header is valid json
+        header = self.__decode_base64(header_chunk)
         try:
-            claims = self.__decode_as_claims(access_token, expected_audience)
-            self.logger.info("Claims: {0}".format(claims))
-            return True
+            header = json.loads(header.decode("utf-8"))
+            self.logger.info("Header is well-formed JSON")
+        except ValueError as e:
+            raise DecodeError("Invalid header JSON: %s" % e)
 
-        except ExpiredTokenError:
-            self.logger.error(
-                "JWT signature is valid, but the token has expired!")
-            return False
+        # make sure the payload is also valid json
+        payload = self.__decode_base64(payload_chunk)
+        try:
+            payload = json.loads(payload.decode("utf-8"))
+            self.logger.info("Payload is well-formed JSON")
+        except ValueError as e:
+            raise DecodeError("Invalid payload JSON: %s" % e)
+        
+        signature = self.__decode_base64(signature_chunk)
+        return (header, payload, signature, signed_message)
 
-        except InvalidSignatureError:
-            self.logger.error("JWT signature validation failed!")
-            return False
-
-        except KeyNotFoundError as key_error:
-            self.logger.error(key_error)
-            return False
-
-        except InvalidKeyError as key_error:
-            self.logger.error(key_error)
-            return False
-
-        except Exception as e:
-            self.logger.error(e)
-            return False
-
-    # remote introspection at the issuer
-    def __introspect_remote(self, access_token):
-        self.logger.info("starting introspect()")
-        encoded_auth = self.__get_encoded_auth(
-            self.client_id, self.client_secret)
-        self.logger.info("Basic authorization: {0}".format(encoded_auth))
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/x-www-form-urlencoded",
-            "Authorization": "Basic {0}".format(encoded_auth)
-        }
-        uri = "{issuer}/v1/introspect?token={token}&token_type_hint=access_token".format(
-            issuer=self.issuer,
-            token=access_token
-        )
-        response = Http.execute_post(uri, headers=headers)
-        self.logger.info("introspect(): {0}".format(
-            self.__dump_json(response)))
-        return response
-
-    def __decode_as_claims(self, jwt, expected_audience):
-        self.logger.info("starting __decodeAsClaims()")
-        # decode the token, validate the signature
-        # and check for required claims
-        payload = self.__decode(jwt)
-        # check for the existence of required claims
+    def __verify_payload(self, payload, expected_audience):
+        # check for and validate the required claims
         if "iss" not in payload:
             raise MissingRequiredClaimError("iss")
 
@@ -167,40 +182,21 @@ class JwtVerifier:
         self.logger.info("JWT is valid")
         return payload
 
-    def __decode(self, jwt):
-        self.logger.info("starting __decode()")
-        # to decode:
-        # 1. crack open the token and get the header, payload, signature
-        #    and signed message (header + payload)
-        header, payload, signature, signed_message = self.__get_jwt_parts(jwt)
-
-        # 2. verify the signature on the JWT
-        if self.__verify_signature(signature, signed_message, header["kid"]):
-            # 3. if the signature is valid, try to parse the payload into JSON
-            self.logger.info("Trying to parse the payload into JSON")
-            try:
-                payload = json.loads(payload.decode("utf-8"))
-                self.logger.info("JSON is well-formed")
-                self.logger.info(self.__dump_json(payload))
-            except ValueError as e:
-                raise DecodeError("Invalid payload JSON: %s" % e)
-
-            # 4. return the JSON representation of the payload
-            return payload
-        else:
-            raise InvalidSignatureError("Signature is not valid")
-
     def __verify_iss(self, issuer, expected):
         self.logger.info("starting __verify_iss()")
+        self.logger.info("issuer:   {0}".format(issuer))
+        self.logger.info("expected: {0}".format(expected))
         if issuer != expected:
             raise InvalidIssuerError(
-                "This token isn't from who you think it's from (Issuer mismatch).")
+                "Issuer mismatch. Got '{0}' expected '{1}'".format(issuer, expected))
 
     def __verify_aud(self, audience, expected):
         self.logger.info("starting __verify_aud()")
+        self.logger.info("audience: {0}".format(audience))
+        self.logger.info("expected: {0}".format(expected))
         if audience != expected:
             raise InvalidAudienceError(
-                "This token is not for your eyes (Audience mismatch).")
+                "Audience mismatch. Got '{0}' expected '{1}'".format(audience, expected))
 
     def __verify_exp(self, expiration, now):
         self.logger.info("starting __verify_exp()")
@@ -232,7 +228,7 @@ class JwtVerifier:
             self.logger.info("JWT signature is valid")
             return True
         except InvalidSignature:
-            return False
+            raise InvalidSignatureError("JWT signature is not valid.")
 
     def __get_public_key(self, kid):
         self.logger.info("starting __get_public_key()")
@@ -249,8 +245,8 @@ class JwtVerifier:
         self.logger.info("starting __get_jwk_parts({0})".format(kid))
         jwk = self.__get_jwk_by_id(kid)
         # return the exponent and modulus of the public key
-        exponent = self.__base64_to_int(jwk["e"].encode("utf-8"))
-        modulus = self.__base64_to_int(jwk["n"].encode("utf-8"))
+        exponent = self.__base64_to_int(jwk["e"])
+        modulus = self.__base64_to_int(jwk["n"])
         return (exponent, modulus)
 
     def __get_jwk_by_id(self, kid):
@@ -270,7 +266,7 @@ class JwtVerifier:
         # use the auth server ID as the filename
         auth_server = self.__get_auth_server_id()
         key_name = "{0}-jwks-cache.json".format(auth_server)
-        self.logger.info("Fetching {0} from cache...".format(key_name))
+        self.logger.info("Fetching JWKS from cache: {0}".format(key_name))
 
         try:
             response = self.jwks_cache.read_from_cache(key_name)
@@ -286,10 +282,19 @@ class JwtVerifier:
             self.jwks_cache.write_to_cache(key_name, response)
             # return the key set since we just got it anyway
             return response["keys"]
-        # except Exception as e:
-        #     # catch all
-        #     self.logger.error("An unhandled error occurred: {0}".format(e))
-        #     raise InvalidKeyError("No jwks found for issuer: {0}".format(self.issuer))
+        except Exception as e:
+            # catch all
+            self.logger.error("An unhandled error occurred: {0}".format(e))
+            raise InvalidKeyError(
+                "No jwks found for issuer: {0}".format(self.issuer))
+
+    def __get_jwks_from_issuer(self):
+        # Gets the jwks from the reported issuer.
+        jwks_uri = "{0}/v1/keys".format(self.reported_issuer)
+        self.logger.info("Getting key set from {0}".format(jwks_uri))
+        response = Http.execute_get(jwks_uri)
+        self.logger.info(self.__dump_json(response))
+        return response
 
     def __get_auth_server_id(self):
         self.logger.info("starting __get_auth_server_id()")
@@ -299,64 +304,16 @@ class JwtVerifier:
         self.logger.info("Auth server ID: {0}".format(server_id))
         return server_id
 
-    def __get_jwks_from_issuer(self):
-        # Gets the jwks JSON from the issuer.
-        jwks_uri = "{0}/v1/keys".format(self.issuer)
-        self.logger.info("Getting key set from {0}".format(jwks_uri))
-        response = Http.execute_get(jwks_uri) # JSON
-        self.logger.info(self.__dump_json(response))
-        return response
-
-    def __get_jwt_parts(self, jwt):
-        # decode the JWT and return the header as JSON,
-        # the payload as a b64 decoded byte array
-        # the signature as a b64 decoded byte array
-        if isinstance(jwt, str):
-            jwt = jwt.encode("utf-8")
-
-        # the JWT looks like this:
-        # <b64 header>.<b64 payload>.<b64 signature>
-        # signed_message is the header+payload in its raw JWT form
-        #  e.g. <b64 header>.<b64 payload> (including the period)
-        # signature_chunk is the raw signature from the JWT
-        #  e.g. <b64 signature>
-        signed_message, signature_chunk = jwt.rsplit(b".", 1)
-        header_chunk, payload_chunk = signed_message.split(b".", 1)
-
-        # make sure the header is valid json
-        header = self.__decode_base64(header_chunk)
-        try:
-            header = json.loads(header.decode("utf-8"))
-        except ValueError as e:
-            raise DecodeError("Invalid header JSON: %s" % e)
-
-        payload = self.__decode_base64(payload_chunk)
-        signature = self.__decode_base64(signature_chunk)
-        return (header, payload, signature, signed_message)
-
-    def __get_encoded_auth(self, client_id, client_secret=None):
-        if client_secret != None:
-            auth_raw = "{client_id}:{client_secret}".format(
-                client_id=client_id,
-                client_secret=client_secret
-            )
-        else:
-            auth_raw = client_id
-
-        encoded_auth = base64.b64encode(
-            bytes(auth_raw, 'UTF-8')).decode("UTF-8")
-        return encoded_auth
-
     def __decode_base64(self, data):
         missing_padding = len(data) % 4
         if missing_padding > 0:
             data += b"=" * (4 - missing_padding)
         return base64.urlsafe_b64decode(data)
 
-    # takes a base64 encoded byte array
-    # and decodes it into its integer representation
     def __base64_to_int(self, val):
-        data = self.__decode_base64(val)
+        # takes a base64 encoded byte array
+        # and decodes it into its integer representation
+        data = self.__decode_base64(val.encode("utf-8"))
         buf = struct.unpack("%sB" % len(data), data)
         return int(''.join(["%02x" % byte for byte in buf]), 16)
 
