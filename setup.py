@@ -23,7 +23,8 @@ VERSION = None
 # What packages are required for this module to be executed?
 REQUIRED = [
     "cryptography",
-    "requests"
+    "requests",
+    "boto3"
 ]
 
 # What packages are optional?
