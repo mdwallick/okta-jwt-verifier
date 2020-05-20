@@ -18,7 +18,6 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from .http import Http
 from .file_cache_plugin import FileCachePlugin
-from .memcached_plugin import MemCachedPlugin
 from .s3_cache_plugin import S3CachePlugin
 
 from .exceptions import (
