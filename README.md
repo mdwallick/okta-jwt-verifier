@@ -8,7 +8,7 @@ This is a simple JWT package built to work specifically with Okta's API Access M
 ## Installing
 Install with **pip**:
 ```
-$ pip install OktaJWT
+$ pip install oktajwt
 ```
 
 ## Usage
