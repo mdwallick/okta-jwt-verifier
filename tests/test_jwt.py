@@ -6,8 +6,8 @@ from calendar import timegm
 from datetime import datetime, timedelta
 from decimal import Decimal
 
-from jwt.jwt_api import JwtVerifier
-from jwt.exceptions import (
+from oktajwt.jwt_api import JwtVerifier
+from oktajwt.exceptions import (
     OktaError,
     DecodeError,
     InvalidSignatureError,

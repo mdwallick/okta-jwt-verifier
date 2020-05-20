@@ -1,6 +1,7 @@
 import argparse
 import json
 import sys
+import traceback
 
 from .jwt_api import JwtVerifier
 from . import __version__ as application
@@ -66,6 +67,22 @@ def get_argparser():
     )
 
     arg_parser.add_argument(
+        "--cache",
+        action="store",
+        required=False,
+        default="file",
+        help="The JWKS caching method to use: file or S3"
+    )
+
+    arg_parser.add_argument(
+        "-b",
+        "--bucket",
+        action="store",
+        required=False,
+        help="The S3 bucket to cache to. REQUIRED if --cache=S3"
+    )
+
+    arg_parser.add_argument(
         "--claims",
         action="store_true",
         required=False,
@@ -86,7 +103,22 @@ def main():
 
     try:
         args = arg_parser.parse_args(sys.argv[1:])
-        jwtVerifier = JwtVerifier(args.issuer, args.client_id, args.client_secret, args.verbosity)
+
+        if args.cache == "S3":
+            jwtVerifier = JwtVerifier(issuer=args.issuer,
+                    client_id=args.client_id,
+                    client_secret=args.client_secret,
+                    cache=args.cache,
+                    bucket=args.bucket,
+                    verbosity=args.verbosity)
+        else:
+            # default to filesystem caching
+            jwtVerifier = JwtVerifier(issuer=args.issuer,
+                client_id=args.client_id,
+                client_secret=args.client_secret,
+                cache=args.cache,
+                verbosity=args.verbosity)
+
         is_valid = jwtVerifier.is_token_valid(args.jwt, args.audience)
         if is_valid:
             print("JWT is valid. Claims can be trusted.")
@@ -97,5 +129,9 @@ def main():
             print("JWT is not valid.")        
 
     except Exception as e:
-        print("There was an unforseen error: ", e)
+        print("Invalid command: ", e)
+        if args.verbosity > 0:
+            stack_trace = traceback.format_exc()
+            print(stack_trace)
+        
         arg_parser.print_help()

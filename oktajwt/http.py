@@ -6,11 +6,6 @@ class Http:
         "Accept": "application/json"
     }
 
-    OAUTH_HEADERS = {
-        "Accept": "application/json",
-        "Content-Type": "application/x-www-form-urlencoded"
-    }
-
     @staticmethod
     def execute_get(url, headers=DEFAULT_HEADERS):
         rest_response = requests.get(url, headers=headers)
@@ -32,9 +27,9 @@ class Http:
         return Http.handle_response_as_json(rest_response)
 
     @staticmethod
-    def handle_response_as_json(rest_response):
+    def handle_response_as_json(response):
         try:
-            response_json = rest_response.json()
+            response_json = response.json()
         except Exception:
             response_json = {"status": "none"}
 

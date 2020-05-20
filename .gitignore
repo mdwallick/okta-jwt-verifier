@@ -103,6 +103,6 @@ venv.bak/
 # mypy
 .mypy_cache/
 
-cachedir
-cache
 .DS_Store
+.vscode
+test.py

@@ -1,3 +1,7 @@
+class CacheObjectNotFoundError(Exception):
+    pass
+
+
 class OktaError(Exception):
     pass
 

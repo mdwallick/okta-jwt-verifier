@@ -110,7 +110,7 @@ setup(
     # py_modules=['mypackage'],
 
     entry_points={
-        'console_scripts': ['oktajwt=jwt.__main__:main'],
+        'console_scripts': ['oktajwt=oktajwt.__main__:main'],
     },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
