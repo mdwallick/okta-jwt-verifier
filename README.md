@@ -12,7 +12,7 @@ $ pip install oktajwt
 ```
 
 ## Usage
-This package is very simple, there is a single function: `decode()`.
+This package is very simple, there is a single function: `verify()`.
 
 ```python
 from oktajwt import *
@@ -31,7 +31,7 @@ jwtVerifier = JwtVerifier(issuer="OAUTH issuer URI",
 )
 
 # validate the token and get claims as a JSON dict
-claims = jwtVerifier.decode(access_token, expected_audience)
+claims = jwtVerifier.verify(access_token, expected_audience)
 print("iss {0}".format(claims["iss"]))
 print("aud {0}".format(claims["aud"]))
 print("sub {0}".format(claims["sub"]))
