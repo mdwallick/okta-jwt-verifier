@@ -22,20 +22,13 @@ This package is very simple, there is a single function: `verify()`.
 from oktajwt import *
 
 issuer = "your OAuth issuer"
-client_id = "OIDC client ID"
-client_secret = "OIDC client secret or None if using PKCE"
-expected_audience = "expected audience"
-access_token = "your base64 encoded JWT, pulled out of the HTTP Authorization header bearer token"
+audience = "expected audience"
+jwt = "your base64 encoded JWT, pulled out of the HTTP Authorization header bearer token"
 
-jwtVerifier = JwtVerifier(issuer="OAUTH issuer URI",
-    client_id="OAuth client ID",
-    client_secret="OAuth client secret or None if using PKCE",
-    cache="caching method to use, file or S3",
-    bucket="S3 bucket to cache to. Required if cache=S3"
-)
+jwtVerifier = JwtVerifier(issuer, audience)
 
 # validate the token and get claims as a JSON dict
-claims = jwtVerifier.verify(access_token, expected_audience)
+claims = jwtVerifier.verify(jwt)
 print("iss {0}".format(claims["iss"]))
 print("aud {0}".format(claims["aud"]))
 print("sub {0}".format(claims["sub"]))
@@ -62,10 +55,6 @@ optional arguments:
                         The expected issuer of the token
   -a AUDIENCE, --audience AUDIENCE
                         The expected audience of the token
-  -c CLIENT_ID, --client_id CLIENT_ID
-                        The OIDC client ID
-  -s CLIENT_SECRET, --client_secret CLIENT_SECRET
-                        The OIDC client secret (not required if using PKCE)
   --cache CACHE         The JWKS caching method to use: file or S3
   -b BUCKET, --bucket BUCKET
                         The S3 bucket to cache to. REQUIRED if --cache=S3
@@ -85,10 +74,13 @@ def get_access_token():
     authorization_header = request.headers.get("authorization")
     print("Authorization header {0}".format(authorization_header))
 
-    if authorization_header != None:
+    if authorization_header == None:
+        abort(401)
+    else:
         header = "Bearer"
         bearer, access_token = authorization_header.split(" ")
         if bearer != header:
+            # malformed header
             abort(401)
 
     return access_token
@@ -99,23 +91,14 @@ def token_test():
     logger.debug("token_test()")
     access_token = get_access_token()
     issuer = os.getenv("ISSUER")
-    client_id = os.getenv("CLIENT_ID")
-    client_secret = os.getenv("CLIENT_SECRET")
     audience = os.getenv("AUDIENCE")
     cache_method = os.getenv("CACHE_METHOD")
-
     # if using S3 caching
     s3_bucket = os.getenv("S3_BUCKET")
 
     try:
-        jwtVerifier = JwtVerifier(
-            issuer=issuer,
-            client_id=client_id,
-            client_secret=client_secret,
-            cache=cache_method,
-            bucket=s3_bucket
-        )
-        claims = jwtVerifier.verify(access_token, audience)
+        jwtVerifier = JwtVerifier(issuer, audience, cache=cache_method, bucket=s3_bucket)
+        claims = jwtVerifier.verify(access_token)
         return jsonify(claims)
     except (ExpiredTokenError, InvalidSignatureError, KeyNotFoundError,
             InvalidKeyError, Exception) as e:
