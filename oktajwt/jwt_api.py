@@ -43,9 +43,12 @@ class JwtVerifier:
     PUBLIC_KEY_FORMAT = PublicFormat.SubjectPublicKeyInfo
     logger = logging.getLogger(__name__)
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, issuer, audience, *args, **kwargs):
         # used to store the issuer from the incoming JWT
+        self.issuer = issuer
+        self.audience = audience
         self.reported_issuer = None
+        self.reported_audience = None
 
         if "verbosity" in kwargs and kwargs["verbosity"] == 2:
             logging.basicConfig(level="DEBUG")
@@ -53,25 +56,6 @@ class JwtVerifier:
             logging.basicConfig(level="INFO")
         else:
             logging.basicConfig(level="ERROR")
-
-        if "issuer" in kwargs and kwargs["issuer"]:
-            self.issuer = kwargs["issuer"]
-            self.logger.info("Issuer: {0}".format(self.issuer))
-        else:
-            raise ValueError("An issuer is required")
-
-        if "client_id" in kwargs and kwargs["client_id"]:
-            self.client_id = kwargs["client_id"]
-            self.logger.info("Client ID: {0}".format(self.client_id))
-        else:
-            raise ValueError("A client ID is required")
-
-        if "client_secret" in kwargs and kwargs["client_secret"]:
-            self.client_secret = kwargs["client_secret"]
-            self.logger.info("Client secret: ********")
-        else:
-            self.client_secret = None
-            self.logger.info("Client secret: None. Assuming PKCE.")
 
         if "cache" not in kwargs or kwargs["cache"] == "file":
             home_dir = str(Path.home())
@@ -92,15 +76,12 @@ class JwtVerifier:
                 raise ValueError(
                     "Unknow caching method {0}".format(kwargs["cache"]))
 
-    def verify(self, access_token, expected_audience):
+    def verify(self, jwt):
         """
         Verify the access token and return the claims as JSON.
 
         """
-        return self.__decode(access_token, expected_audience)
-
-    def __decode(self, jwt, expected_audience):
-        self.logger.info("starting __decode()")
+        self.logger.info("starting verify()")
         # crack open the token and get the header, payload, signature
         # and signed message (header + payload)
         header, payload, signature, signed_message = self.__get_jwt_parts(jwt)
@@ -119,7 +100,7 @@ class JwtVerifier:
             self.logger.info("Trying to parse the payload into JSON")
             try:
                 # verify and return the payload
-                return self.__verify_payload(payload, expected_audience)
+                return self.__verify_payload(payload)
             except ValueError as e:
                 raise DecodeError("Invalid payload JSON: %s" % e)
         else:
@@ -160,7 +141,7 @@ class JwtVerifier:
         signature = self.__decode_base64(signature_chunk)
         return (header, payload, signature, signed_message)
 
-    def __verify_payload(self, payload, expected_audience):
+    def __verify_payload(self, payload):
         # check for and validate the required claims
         if "iss" not in payload:
             raise MissingRequiredClaimError("iss")
@@ -174,7 +155,7 @@ class JwtVerifier:
         if "iat" not in payload:
             raise MissingRequiredClaimError("iat")
 
-        self.__verify_aud(payload["aud"], expected_audience)
+        self.__verify_aud(payload["aud"], self.audience)
         self.__verify_iss(payload["iss"], self.issuer)
         now = timegm(datetime.utcnow().utctimetuple())
         self.__verify_exp(payload["exp"], now)

@@ -7,10 +7,11 @@ from .jwt_api import JwtVerifier
 from . import __version__ as application
 
 from .exceptions import (
-    OktaError, DecodeError, InvalidSignatureError, InvalidIssuerError, 
-    MissingRequiredClaimError, InvalidAudienceError, ExpiredTokenError, 
+    OktaError, DecodeError, InvalidSignatureError, InvalidIssuerError,
+    MissingRequiredClaimError, InvalidAudienceError, ExpiredTokenError,
     InvalidIssuedAtError, InvalidKeyError, KeyNotFoundError
 )
+
 
 def get_argparser():
     usage = """
@@ -33,7 +34,7 @@ def get_argparser():
         choices=[0, 1, 2],
         help="increase output verbosity"
     )
-    
+
     arg_parser.add_argument(
         "-i",
         "--issuer",
@@ -48,22 +49,6 @@ def get_argparser():
         action="store",
         required=True,
         help="The expected audience of the token"
-    )
-
-    arg_parser.add_argument(
-        "-c",
-        "--client_id",
-        action="store",
-        required=True,
-        help="The OIDC client ID"
-    )
-
-    arg_parser.add_argument(
-        "-s",
-        "--client_secret",
-        action="store",
-        required=False,
-        help="The OIDC client secret (not required if using PKCE)"
     )
 
     arg_parser.add_argument(
@@ -98,6 +83,7 @@ def get_argparser():
 
     return arg_parser
 
+
 def main():
     arg_parser = get_argparser()
 
@@ -105,25 +91,19 @@ def main():
         args = arg_parser.parse_args(sys.argv[1:])
 
         if args.cache == "S3":
-            jwtVerifier = JwtVerifier(issuer=args.issuer,
-                    client_id=args.client_id,
-                    client_secret=args.client_secret,
-                    cache=args.cache,
-                    bucket=args.bucket,
-                    verbosity=args.verbosity)
+            jwtVerifier = JwtVerifier(
+                args.issuer, args.audience, verbosity=args.verbosity, cache=args.cache, bucket=args.bucket)
         else:
             # default to filesystem caching
-            jwtVerifier = JwtVerifier(issuer=args.issuer,
-                client_id=args.client_id,
-                client_secret=args.client_secret,
-                cache=args.cache,
-                verbosity=args.verbosity)
+            jwtVerifier = JwtVerifier(
+                args.issuer, args.audience, verbosity=args.verbosity, cache="file")
 
         try:
-            claims = jwtVerifier.verify(args.jwt, args.audience)
+            claims = jwtVerifier.verify(args.jwt)
             print("JWT is valid. Claims can be trusted.")
             if args.claims:
-                print("Verified claims: {0}".format(json.dumps(claims, indent=4, sort_keys=True)))
+                print("Verified claims: {0}".format(
+                    json.dumps(claims, indent=4, sort_keys=True)))
         except Exception as e:
             print("JWT is not valid: {0}".format(e))
 
@@ -132,5 +112,5 @@ def main():
         if args.verbosity > 0:
             stack_trace = traceback.format_exc()
             print(stack_trace)
-        
+
         arg_parser.print_help()
