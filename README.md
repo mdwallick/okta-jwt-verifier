@@ -3,15 +3,19 @@
 This is a simple JWT package built to work specifically with Okta's API Access Management product (API AM). It was inspried in part by [jpadilla's PyJWT package](https://github.com/jpadilla/pyjwt). This is not meant to be a full implementation of [RFC 7519](https://tools.ietf.org/html/rfc7519), but rather a subset of JWT operations specific to working with Okta.
 
 ## Requirements
+
 * Python >= 3.7
 
 ## Installing
+
 Install with **pip**:
-```
-$ pip install oktajwt
+
+```shell
+pip install oktajwt
 ```
 
 ## Usage
+
 This package is very simple, there is a single function: `verify()`.
 
 ```python
@@ -39,7 +43,8 @@ print("exp {0}".format(claims["exp"]))
 ```
 
 This module also has a basic command line interface just as an example:
-```
+
+```shell
 usage:
     Decodes and verifies JWTs from an Okta authorization server.
 
@@ -98,7 +103,7 @@ def token_test():
     client_secret = os.getenv("CLIENT_SECRET")
     audience = os.getenv("AUDIENCE")
     cache_method = os.getenv("CACHE_METHOD")
-    
+
     # if using S3 caching
     s3_bucket = os.getenv("S3_BUCKET")
 
@@ -109,10 +114,10 @@ def token_test():
             client_secret=client_secret,
             cache=cache_method,
             bucket=s3_bucket
-        )       
+        )
         claims = jwtVerifier.verify(access_token, audience)
         return jsonify(claims)
-    except (ExpiredTokenError, InvalidSignatureError, KeyNotFoundError, 
+    except (ExpiredTokenError, InvalidSignatureError, KeyNotFoundError,
             InvalidKeyError, Exception) as e:
         # something is wrong with the token
         # expired, bad signature, etc.
@@ -123,16 +128,17 @@ def token_test():
 If you're interested, I have a [super basic Flask API server](https://github.com/mdwallick/okta-admin-api) that fronts a subset of the Okta APIs (users, groups, factors) that uses this package as an example.
 
 ## Okta Configuration
+
 **NOTE:** this package will **NOT** work with the "stock" organization authorization server as access tokens minted by that server are opaque and no public key is published.
 
 **Okta Org**
-You need to have an Okta org with API Access management available. You can get a free developer account at https://developer.okta.com. Developer tenants will have API Access Management available.
+You need to have an Okta org with API Access management available. You can get a free developer account at
+[developer.okta.com](https://developer.okta.com). Developer tenants will have API Access Management available.
 
 **"How can I tell if I have API Access Management enabled or not?"**
-
 It's actually quite easy. Copy this link and replace the subdomain with yours (a free developer tenant subdomain will look like dev-123456).
 
-https://<YOUR_SUBDOMAIN>.okta.com/oauth2/default/.well-known/oauth-authorization-server
+`https://<YOUR_SUBDOMAIN>.okta.com/oauth2/default/.well-known/oauth-authorization-server`
 
 Paste the link with your subdomain in your browser and if you see this:
 
@@ -145,8 +151,8 @@ Paste the link with your subdomain in your browser and if you see this:
     "errorCauses": []
 }
 ```
+
 You don't have API Access Management enabled in your org. Go get a [free developer account](https://developer.okta.com). Developer tenants will have API Access Management available.
 
 **Create an OIDC Application**
 Create a new OIDC application in Okta. This is where you'll get the client ID and client secret values. If you create an app that uses PKCE, a client secret value is not necessary and will not be generated.
-x
