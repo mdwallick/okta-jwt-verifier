@@ -51,27 +51,25 @@ class TestVerifier(unittest.TestCase):
 
     def test_invalid_signature_raises_InvalidSignatureError(self):
         with self.assertRaises(InvalidSignatureError):
-            oj = JwtVerifier(issuer=self.issuer, client_id=self.client_id)
-            _claims = oj.verify(
-                self.invalid_signed_token, self.audience)
+            oj = JwtVerifier(self.issuer, self.audience)
+            _claims = oj.verify(self.invalid_signed_token)
 
     def test_valid_signature_yet_expired_raises_ExpiredTokenError(self):
         with self.assertRaises(ExpiredTokenError):
-            oj = JwtVerifier(issuer=self.issuer, client_id=self.client_id)
-            _claims = oj.verify(
-                self.expired_token, self.audience)
+            oj = JwtVerifier(self.issuer, self.audience)
+            _claims = oj.verify(self.expired_token)
 
     def test_issuer_mismatch_raises_InvalidIssuerError(self):
         with self.assertRaises((InvalidIssuerError, KeyNotFoundError)):
-            oj = JwtVerifier(issuer=self.wrong_issuer, client_id=self.client_id)
-            _claims = oj.verify(self.expired_token, self.audience)
+            oj = JwtVerifier(self.wrong_issuer, self.audience)
+            _claims = oj.verify(self.expired_token)
 
     def test_audience_mismatch_raises_InvalidAudienceError(self):
         with self.assertRaises(InvalidAudienceError):
-            oj = JwtVerifier(issuer=self.issuer, client_id=self.client_id)
-            _claims = oj.verify(self.expired_token, self.wrong_audience)
+            oj = JwtVerifier(self.issuer, self.wrong_audience)
+            _claims = oj.verify(self.expired_token)
 
     def test_nonexistent_issuer_raises_InvalidIssuerError(self):
         with self.assertRaises((InvalidIssuerError, KeyNotFoundError)):
-            oj = JwtVerifier(issuer=self.nonexistent_issuer, client_id=self.client_id)
-            _claims = oj.verify(self.expired_token, self.audience)
+            oj = JwtVerifier(self.nonexistent_issuer, self.audience)
+            _claims = oj.verify(self.expired_token)
